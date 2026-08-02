@@ -1,0 +1,34 @@
+/* サイト側の .button クラスが効かない場合でも押せる見た目になるようにする。 */
+.icoca-csv-export {
+  display: inline-block;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.icoca-csv-export > button {
+  cursor: pointer;
+}
+
+.icoca-csv-export-fallback {
+  margin: 8px 0;
+}
+
+.icoca-csv-export-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 2147483647;
+  max-width: 90vw;
+  padding: 10px 16px;
+  transform: translateX(-50%);
+  border-radius: 4px;
+  background: #0068b7;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1.5;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.icoca-csv-export-toast.-error {
+  background: #b7280f;
+}

@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>テスト用 利用明細画面</title>
+</head>
+<body>
+<form name="form1" action="/iq/ir/ICCardDisp.aspx" method="post">
+  <h1 class="tit-bbg">利用明細</h1>
+  <div class="main__content">
+    <div class="table-menu">
+      <div class="table-menu__row">
+        <div class="table-menu__cell">
+          <dl class="table-menu__search">
+            <dt>表示対象：</dt>
+            <dd>
+              <select name="specifyYearMonth"><option value="2026/01" selected="selected">2026/01</option></select>
+              <span>/</span>
+              <select name="specifyDay"><option value="15" selected="selected">15</option></select>
+              <span>以前</span>
+            </dd>
+          </dl>
+        </div>
+        <div class="table-menu__cell">
+          <div class="button -small_ -blue"><button type="submit" name="SEARCH">検索</button></div>
+          <div class="button -small_ -blue -print"><button name="PRINT">表示された履歴を印刷</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-swipe">
+      <table class="sticky-table">
+        <tr>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">月/日</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">種別</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">利用場所</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">種別</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">利用場所</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">残額</font></td>
+          <td class="pad08 bluebg02" align="center"><font class="tx-blue">差額</font></td>
+        </tr>
+        <tr>
+          <td class="pad08 whtbg" align="center"><font class="ml">01/10</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">物販</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml"></font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">利用</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml"></font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">&yen;589</font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">-160</font></td>
+        </tr>
+        <tr>
+          <td class="pad08 whtbg" align="center"><font class="ml">01/08</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">入場</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">ダミー西</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">出場</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">ダミー東  </font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">&yen;749</font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">-1,110</font></td>
+        </tr>
+        <tr>
+          <td class="pad08 whtbg" align="center"><font class="ml">01/05</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">入金</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">モバイル</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">クレ</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml"></font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">&yen;1,859</font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">+2,000</font></td>
+        </tr>
+        <tr>
+          <td class="pad08 whtbg" align="center"><font class="ml">12/28</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">乗車</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">ダミー交</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml">ﾊﾞｽ等</font></td>
+          <td class="pad08 whtbg" align="center"><font class="ml"></font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml">&yen;2,000</font></td>
+          <td class="pad08 whtbg" align="right"><font class="ml"></font></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="table-menu">
+      <div class="table-menu__row -c">
+        <div class="table-menu__cell">
+          <div class="button -small_ -blue -print"><button name="PRINT">表示された履歴を印刷</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+</body>
+</html>

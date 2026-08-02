@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "モバイルICOCA 利用明細 CSV出力",
+  "version": "1.0.0",
+  "description": "モバイルICOCA会員メニューの利用明細画面に「CSV出力」ボタンを追加します。処理はすべてブラウザ内で完結し、外部への通信は行いません。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["activeTab", "scripting"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_title": "利用明細をCSV出力",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.jr-odekake.net/*",
+        "*://*.jr-west.co.jp/*",
+        "*://*.westjr.co.jp/*",
+        "*://*.mobile-icoca.jp/*",
+        "*://*.mobileicoca.jp/*",
+        "*://*.smart-icoca.jp/*"
+      ],
+      "js": ["src/parser.js", "src/content.js"],
+      "css": ["src/content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
