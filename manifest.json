@@ -30,7 +30,7 @@
         "*://*.mobileicoca.jp/*",
         "*://*.smart-icoca.jp/*"
       ],
-      "js": ["src/parser.js", "src/content.js"],
+      "js": ["src/parser.js", "src/ui.js", "src/content.js"],
       "css": ["src/content.css"],
       "run_at": "document_idle"
     }

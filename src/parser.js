@@ -11,11 +11,23 @@
   /** 明細テーブルのヘッダー行を見分けるための語。 */
   var HEADER_KEYWORDS = ['月/日', '残額', '差額'];
 
-  /** CSV の見出し行。 */
-  var CSV_HEADER = ['日付', '月/日', '種別1', '利用場所1', '種別2', '利用場所2', '残額', '差額'];
+  /**
+   * CSV の見出し行。
+   * 実際に使われた金額は差額なので、残額は出力しない。
+   */
+  var CSV_HEADER = ['日付', '月/日', '種別1', '利用場所1', '種別2', '利用場所2', '差額'];
 
-  /** 明細1件が持つ列数。 */
+  /** 明細1件が持つ列数（表側の列数。残額を含む）。 */
   var COLUMN_COUNT = 7;
+
+  /** 会員メニューが1画面に表示する明細の上限。 */
+  var MAX_ROWS_PER_FILE = 100;
+
+  /** 出力方法。monthly = 月ごとに別ファイル、single = まとめて1ファイル。 */
+  var MODES = ['monthly', 'single'];
+
+  /** 出力範囲。 */
+  var RANGES = ['current', 'previous', 'last3'];
 
   function normalizeText(value) {
     return String(value == null ? '' : value)
@@ -132,7 +144,6 @@
         record.place1,
         record.type2,
         record.place2,
-        record.balance,
         record.delta
       ]);
     });
@@ -155,6 +166,108 @@
     }
 
     return 'icoca_meisai_' + stamp + '.csv';
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* 出力範囲と出力方法                                                   */
+  /* ------------------------------------------------------------------ */
+
+  function monthKeyOf(record) {
+    return record.date.slice(0, 7);
+  }
+
+  /** 基準日の offset ヶ月前の 'YYYY-MM'。 */
+  function monthKeyBefore(today, offset) {
+    var shifted = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+    return shifted.getFullYear() + '-' + pad2(shifted.getMonth() + 1);
+  }
+
+  /**
+   * 出力範囲に含まれる月を新しい順に返す。
+   * 「直近3ヶ月」は当月・前月・前々月の3暦月とする（月ごと出力なら3ファイル）。
+   */
+  function monthKeysForRange(range, today) {
+    switch (range) {
+      case 'current':
+        return [monthKeyBefore(today, 0)];
+      case 'previous':
+        return [monthKeyBefore(today, 1)];
+      case 'last3':
+        return [monthKeyBefore(today, 0), monthKeyBefore(today, 1), monthKeyBefore(today, 2)];
+      default:
+        throw new Error('未知の出力範囲: ' + range);
+    }
+  }
+
+  /** 明細を月ごとにまとめる。入力が新しい順なら、結果も新しい月から並ぶ。 */
+  function groupByMonth(records) {
+    var order = [];
+    var buckets = Object.create(null);
+
+    records.forEach(function (record) {
+      var key = monthKeyOf(record);
+      if (!buckets[key]) {
+        buckets[key] = [];
+        order.push(key);
+      }
+      buckets[key].push(record);
+    });
+
+    return order.map(function (key) {
+      return { month: key, records: buckets[key] };
+    });
+  }
+
+  /**
+   * 出力範囲と出力方法から、実際に落とすファイルの一覧を組み立てる。
+   *
+   * @param {Array} records 画面に表示されている明細（新しい順）
+   * @param {{mode: string, range: string, today: Date}} options
+   * @returns {{months: string[], files: Array, total: number, emptyMonths: string[]}}
+   */
+  function buildExportPlan(records, options) {
+    if (MODES.indexOf(options.mode) === -1) throw new Error('未知の出力方法: ' + options.mode);
+
+    var months = monthKeysForRange(options.range, options.today);
+    var wanted = Object.create(null);
+    months.forEach(function (key) {
+      wanted[key] = true;
+    });
+
+    var filtered = records.filter(function (record) {
+      return wanted[monthKeyOf(record)];
+    });
+
+    var groups = groupByMonth(filtered);
+    var files;
+
+    if (options.mode === 'monthly') {
+      files = groups.map(function (group) {
+        return { name: 'icoca_meisai_' + group.month + '.csv', records: group.records };
+      });
+    } else {
+      var limited = filtered.slice(0, MAX_ROWS_PER_FILE);
+      files = limited.length === 0
+        ? []
+        : [{ name: buildFileName(limited, options.today), records: limited }];
+    }
+
+    var found = Object.create(null);
+    groups.forEach(function (group) {
+      found[group.month] = true;
+    });
+
+    return {
+      months: months,
+      files: files,
+      total: files.reduce(function (sum, file) {
+        return sum + file.records.length;
+      }, 0),
+      // 表示中の100件に含まれていない月。範囲を広げても出せないことを伝えるために使う。
+      emptyMonths: months.filter(function (key) {
+        return !found[key];
+      })
+    };
   }
 
   /* ------------------------------------------------------------------ */
@@ -219,6 +332,9 @@
 
   var api = {
     CSV_HEADER: CSV_HEADER,
+    MODES: MODES,
+    RANGES: RANGES,
+    MAX_ROWS_PER_FILE: MAX_ROWS_PER_FILE,
     normalizeText: normalizeText,
     parseAmount: parseAmount,
     parseMonthDay: parseMonthDay,
@@ -226,6 +342,10 @@
     escapeCsvField: escapeCsvField,
     buildCsv: buildCsv,
     buildFileName: buildFileName,
+    monthKeyOf: monthKeyOf,
+    monthKeysForRange: monthKeysForRange,
+    groupByMonth: groupByMonth,
+    buildExportPlan: buildExportPlan,
     findHistoryTable: findHistoryTable,
     cellMatrixFromTable: cellMatrixFromTable,
     extractRows: extractRows

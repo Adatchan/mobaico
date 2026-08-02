@@ -7,8 +7,16 @@ const {
   rowsFromCellMatrix,
   escapeCsvField,
   buildCsv,
-  buildFileName
+  buildFileName,
+  monthKeysForRange,
+  groupByMonth,
+  buildExportPlan
 } = require('../src/parser.js');
+
+/** テスト用に、月日と差額だけ指定して明細行を作る。 */
+function row(monthDay, delta) {
+  return [monthDay, '物販', '', '利用', '', '¥1,000', String(delta)];
+}
 
 test('parseAmount は円記号・カンマ・符号を取り除いて数値にする', () => {
   assert.equal(parseAmount('¥1,039'), 1039);
@@ -102,7 +110,7 @@ test('escapeCsvField はカンマ・引用符・改行を含む値だけを囲�
   assert.equal(escapeCsvField(0), '0');
 });
 
-test('buildCsv は見出し付きの CRLF 区切り CSV を返す', () => {
+test('buildCsv は見出し付きの CRLF 区切り CSV を返し、残額は含めない', () => {
   const matrix = [
     ['01/10', '物販', '', '利用', '', '¥589', '-160'],
     ['12/28', '乗車', 'ダミー交', 'ﾊﾞｽ等', '', '¥2,000', '']
@@ -110,9 +118,9 @@ test('buildCsv は見出し付きの CRLF 区切り CSV を返す', () => {
   const csv = buildCsv(rowsFromCellMatrix(matrix, new Date(2026, 0, 15)));
 
   assert.deepEqual(csv.split('\r\n'), [
-    '日付,月/日,種別1,利用場所1,種別2,利用場所2,残額,差額',
-    '2026-01-10,01/10,物販,,利用,,589,-160',
-    '2025-12-28,12/28,乗車,ダミー交,ﾊﾞｽ等,,2000,',
+    '日付,月/日,種別1,利用場所1,種別2,利用場所2,差額',
+    '2026-01-10,01/10,物販,,利用,,-160',
+    '2025-12-28,12/28,乗車,ダミー交,ﾊﾞｽ等,,',
     ''
   ]);
 });
@@ -134,4 +142,120 @@ test('buildFileName は1日分なら日付ひとつ、明細ゼロなら当日�
 
   assert.equal(buildFileName(single, new Date(2026, 0, 15)), 'icoca_meisai_20260110.csv');
   assert.equal(buildFileName([], new Date(2026, 0, 5)), 'icoca_meisai_20260105.csv');
+});
+
+test('monthKeysForRange は当月・前月・直近3ヶ月を新しい順に返す', () => {
+  const today = new Date(2026, 7, 2); // 2026/08/02
+
+  assert.deepEqual(monthKeysForRange('current', today), ['2026-08']);
+  assert.deepEqual(monthKeysForRange('previous', today), ['2026-07']);
+  assert.deepEqual(monthKeysForRange('last3', today), ['2026-08', '2026-07', '2026-06']);
+});
+
+test('monthKeysForRange は年をまたいでも正しく遡る', () => {
+  const today = new Date(2026, 0, 20); // 2026/01/20
+
+  assert.deepEqual(monthKeysForRange('previous', today), ['2025-12']);
+  assert.deepEqual(monthKeysForRange('last3', today), ['2026-01', '2025-12', '2025-11']);
+});
+
+test('monthKeysForRange は未知の範囲を拒む', () => {
+  assert.throws(() => monthKeysForRange('all', new Date(2026, 7, 2)), /未知の出力範囲/);
+});
+
+test('groupByMonth は新しい月から順にまとめる', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('07/01', -300), row('06/30', -400)],
+    new Date(2026, 7, 2)
+  );
+
+  assert.deepEqual(
+    groupByMonth(records).map((g) => [g.month, g.records.length]),
+    [['2026-08', 1], ['2026-07', 2], ['2026-06', 1]]
+  );
+});
+
+test('直近3ヶ月 × １ヶ月ごと は月ごとに3ファイルへ分かれる', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('07/01', -300), row('06/30', -400), row('05/31', -500)],
+    new Date(2026, 7, 2)
+  );
+
+  const plan = buildExportPlan(records, { mode: 'monthly', range: 'last3', today: new Date(2026, 7, 2) });
+
+  assert.deepEqual(plan.files.map((f) => f.name), [
+    'icoca_meisai_2026-08.csv',
+    'icoca_meisai_2026-07.csv',
+    'icoca_meisai_2026-06.csv'
+  ]);
+  assert.deepEqual(plan.files.map((f) => f.records.length), [1, 2, 1]);
+  // 範囲外の 05/31 は含めない
+  assert.equal(plan.total, 4);
+  assert.deepEqual(plan.emptyMonths, []);
+});
+
+test('直近3ヶ月 × 直近100件 は1ファイルにまとまる', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('06/30', -400), row('05/31', -500)],
+    new Date(2026, 7, 2)
+  );
+
+  const plan = buildExportPlan(records, { mode: 'single', range: 'last3', today: new Date(2026, 7, 2) });
+
+  assert.equal(plan.files.length, 1);
+  assert.equal(plan.files[0].name, 'icoca_meisai_20260630-20260801.csv');
+  assert.equal(plan.total, 3);
+});
+
+test('当月・前月はその月だけを出力する', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('06/30', -400)],
+    new Date(2026, 7, 2)
+  );
+  const today = new Date(2026, 7, 2);
+
+  const current = buildExportPlan(records, { mode: 'monthly', range: 'current', today });
+  assert.deepEqual(current.files.map((f) => f.name), ['icoca_meisai_2026-08.csv']);
+  assert.equal(current.total, 1);
+
+  const previous = buildExportPlan(records, { mode: 'monthly', range: 'previous', today });
+  assert.deepEqual(previous.files.map((f) => f.name), ['icoca_meisai_2026-07.csv']);
+  assert.equal(previous.total, 1);
+});
+
+test('直近100件は表示上限の100件で打ち切る', () => {
+  const matrix = [];
+  for (let i = 0; i < 120; i += 1) matrix.push(row('07/20', -100));
+  const records = rowsFromCellMatrix(matrix, new Date(2026, 7, 2));
+
+  const plan = buildExportPlan(records, { mode: 'single', range: 'previous', today: new Date(2026, 7, 2) });
+
+  assert.equal(plan.files.length, 1);
+  assert.equal(plan.total, 100);
+});
+
+test('表示中の明細に無い月は emptyMonths として知らせる', () => {
+  const records = rowsFromCellMatrix([row('08/01', -100)], new Date(2026, 7, 2));
+
+  const plan = buildExportPlan(records, { mode: 'monthly', range: 'last3', today: new Date(2026, 7, 2) });
+
+  assert.deepEqual(plan.files.map((f) => f.name), ['icoca_meisai_2026-08.csv']);
+  assert.deepEqual(plan.emptyMonths, ['2026-07', '2026-06']);
+});
+
+test('範囲内に明細が無ければファイルを作らない', () => {
+  const records = rowsFromCellMatrix([row('08/01', -100)], new Date(2026, 7, 2));
+
+  const plan = buildExportPlan(records, { mode: 'monthly', range: 'previous', today: new Date(2026, 7, 2) });
+
+  assert.deepEqual(plan.files, []);
+  assert.equal(plan.total, 0);
+  assert.deepEqual(plan.emptyMonths, ['2026-07']);
+});
+
+test('buildExportPlan は未知の出力方法を拒む', () => {
+  assert.throws(
+    () => buildExportPlan([], { mode: 'weekly', range: 'current', today: new Date(2026, 7, 2) }),
+    /未知の出力方法/
+  );
 });

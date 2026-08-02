@@ -7,7 +7,10 @@
 
   var BUTTON_CLASS = 'icoca-csv-export';
   var TOAST_CLASS = 'icoca-csv-export-toast';
+  /** 複数ファイルを一度に落とすとき、ブラウザが取りこぼさないよう間隔を空ける。 */
+  var DOWNLOAD_INTERVAL_MS = 400;
   var api = globalThis.IcocaCsv;
+  var ui = globalThis.IcocaCsvUi;
 
   function buildCsvButton() {
     // ページ既存のボタンと同じ見た目になるよう、サイト側のクラスに乗る。
@@ -21,7 +24,7 @@
     button.addEventListener('click', function (event) {
       event.preventDefault();
       event.stopPropagation();
-      exportNow();
+      openExportDialog();
     });
 
     wrapper.appendChild(button);
@@ -104,7 +107,22 @@
     }, 1000);
   }
 
-  function exportNow() {
+  /** 計画されたファイルを順に落とす。 */
+  function runExport(plan) {
+    plan.files.forEach(function (file, index) {
+      setTimeout(function () {
+        downloadCsv(file.name, api.buildCsv(file.records));
+      }, index * DOWNLOAD_INTERVAL_MS);
+    });
+
+    var message = plan.files.length === 1
+      ? plan.total + '件の明細をCSVに出力しました。'
+      : plan.files.length + 'ファイル（合計' + plan.total + '件）をCSVに出力しました。';
+    showToast(message);
+  }
+
+  /** 出力方法・出力範囲を選ぶダイアログを開く。 */
+  function openExportDialog() {
     var today = new Date();
     var result = api.extractRows(document, { today: today });
 
@@ -117,15 +135,19 @@
       return false;
     }
 
-    downloadCsv(api.buildFileName(result.records, today), api.buildCsv(result.records));
-    showToast(result.records.length + '件の明細をCSVに出力しました。');
+    ui.openExportDialog({
+      records: result.records,
+      today: today,
+      api: api,
+      onSubmit: runExport
+    });
     return true;
   }
 
   // ツールバーのアイコンから再注入されたときに二重登録しないようにする。
   globalThis.__icocaCsvExport = {
     installButtons: installButtons,
-    exportNow: exportNow
+    openExportDialog: openExportDialog
   };
 
   installButtons();
