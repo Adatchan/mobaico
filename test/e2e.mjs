@@ -140,6 +140,35 @@ try {
     '見出し + 4件'
   );
 
+  /* ---- 全て × １ヶ月ごと → 明細のある月すべてを別ファイルに ---- */
+
+  await buttons.first().click();
+  await page.locator('.panel').waitFor();
+
+  assert.match(
+    await page.locator('label:has(input[value="all"])').textContent(),
+    /表示中の4件すべて（2025\/12\/28〜2026\/01\/10）/,
+    '「全て」には表示中の明細の実際の範囲を出す'
+  );
+
+  await page.locator('input[value="all"]').check();
+  await page.locator('input[value="monthly"]').check();
+  const allPreview = await page.locator('#preview').textContent();
+  assert.match(allPreview, /2ファイル・合計4件/);
+  assert.doesNotMatch(allPreview, /明細はありません/, '「全て」で月の抜けは知らせない');
+
+  const all = await runExport(2);
+  assert.deepEqual([...all.keys()].sort(), ['icoca_meisai_2025-12.csv', 'icoca_meisai_2026-01.csv']);
+
+  /* ---- 全て × 直近100件 → 1ファイル ---- */
+
+  await buttons.first().click();
+  await page.locator('.panel').waitFor();
+  await page.locator('input[value="all"]').check();
+  await page.locator('input[value="single"]').check();
+  assert.match(await page.locator('#preview').textContent(), /1ファイル・合計4件/);
+  assert.deepEqual([...(await runExport(1)).keys()], ['icoca_meisai_20251228-20260110.csv']);
+
   /* ---- 明細が無い範囲では出力実行を押せない ---- */
 
   await buttons.first().click();

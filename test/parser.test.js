@@ -160,7 +160,7 @@ test('monthKeysForRange は年をまたいでも正しく遡る', () => {
 });
 
 test('monthKeysForRange は未知の範囲を拒む', () => {
-  assert.throws(() => monthKeysForRange('all', new Date(2026, 7, 2)), /未知の出力範囲/);
+  assert.throws(() => monthKeysForRange('last6', new Date(2026, 7, 2)), /未知の出力範囲/);
 });
 
 test('groupByMonth は新しい月から順にまとめる', () => {
@@ -258,4 +258,50 @@ test('buildExportPlan は未知の出力方法を拒む', () => {
     () => buildExportPlan([], { mode: 'weekly', range: 'current', today: new Date(2026, 7, 2) }),
     /未知の出力方法/
   );
+});
+
+test('monthKeysForRange の「全て」は絞り込みなしを表す null を返す', () => {
+  assert.equal(monthKeysForRange('all', new Date(2026, 7, 2)), null);
+});
+
+test('全て × １ヶ月ごと は明細のある月すべてを別ファイルにする', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('07/01', -300), row('05/31', -500), row('12/28', -600)],
+    new Date(2026, 7, 2)
+  );
+
+  const plan = buildExportPlan(records, { mode: 'monthly', range: 'all', today: new Date(2026, 7, 2) });
+
+  // 直近3ヶ月から外れる 2026-05 や、年をまたいだ 2025-12 も落ちる
+  assert.deepEqual(plan.files.map((f) => f.name), [
+    'icoca_meisai_2026-08.csv',
+    'icoca_meisai_2026-07.csv',
+    'icoca_meisai_2026-05.csv',
+    'icoca_meisai_2025-12.csv'
+  ]);
+  assert.deepEqual(plan.files.map((f) => f.records.length), [1, 2, 1, 1]);
+  assert.equal(plan.total, 5);
+  assert.deepEqual(plan.months, ['2026-08', '2026-07', '2026-05', '2025-12']);
+  assert.deepEqual(plan.emptyMonths, [], '表示中のものが全てなので抜けは起こらない');
+});
+
+test('全て × 直近100件 は表示中の明細を1ファイルにまとめる', () => {
+  const records = rowsFromCellMatrix(
+    [row('08/01', -100), row('07/20', -200), row('05/31', -500)],
+    new Date(2026, 7, 2)
+  );
+
+  const plan = buildExportPlan(records, { mode: 'single', range: 'all', today: new Date(2026, 7, 2) });
+
+  assert.equal(plan.files.length, 1);
+  assert.equal(plan.files[0].name, 'icoca_meisai_20260531-20260801.csv');
+  assert.equal(plan.total, 3);
+});
+
+test('全て で明細が1件も無ければファイルを作らない', () => {
+  const plan = buildExportPlan([], { mode: 'monthly', range: 'all', today: new Date(2026, 7, 2) });
+
+  assert.deepEqual(plan.files, []);
+  assert.deepEqual(plan.months, []);
+  assert.equal(plan.total, 0);
 });

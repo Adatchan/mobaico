@@ -93,16 +93,24 @@
     ].join('');
   }
 
-  function rangeOptions(api, today) {
+  function rangeOptions(api, today, records) {
     var current = api.monthKeysForRange('current', today)[0];
     var previous = api.monthKeysForRange('previous', today)[0];
     var last3 = api.monthKeysForRange('last3', today);
+
+    // 「全て」は暦月ではなく、いま画面に出ている明細の範囲になる。
+    var allNote = records.length === 0
+      ? '表示中の明細すべて'
+      : '表示中の' + records.length + '件すべて（' +
+        records[records.length - 1].date.replace(/-/g, '/') + '〜' +
+        records[0].date.replace(/-/g, '/') + '）';
 
     return [
       buildRadio('range', 'current', '当月', displayMonth(current), true),
       buildRadio('range', 'previous', '前月', displayMonth(previous), false),
       buildRadio('range', 'last3', '直近３ヶ月',
-        displayMonth(last3[last3.length - 1]) + '〜' + displayMonth(last3[0]), false)
+        displayMonth(last3[last3.length - 1]) + '〜' + displayMonth(last3[0]), false),
+      buildRadio('range', 'all', '全て', allNote, false)
     ].join('');
   }
 
@@ -154,7 +162,8 @@
     shadow.innerHTML = '<style>' + STYLE + '</style>' + MARKUP;
 
     shadow.getElementById('mode-set').insertAdjacentHTML('beforeend', modeOptions());
-    shadow.getElementById('range-set').insertAdjacentHTML('beforeend', rangeOptions(config.api, config.today));
+    shadow.getElementById('range-set')
+      .insertAdjacentHTML('beforeend', rangeOptions(config.api, config.today, config.records));
 
     var preview = shadow.getElementById('preview');
     var submit = shadow.querySelector('.submit');

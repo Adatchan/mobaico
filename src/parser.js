@@ -26,8 +26,8 @@
   /** 出力方法。monthly = 月ごとに別ファイル、single = まとめて1ファイル。 */
   var MODES = ['monthly', 'single'];
 
-  /** 出力範囲。 */
-  var RANGES = ['current', 'previous', 'last3'];
+  /** 出力範囲。all は表示中の明細すべて。 */
+  var RANGES = ['current', 'previous', 'last3', 'all'];
 
   function normalizeText(value) {
     return String(value == null ? '' : value)
@@ -185,6 +185,7 @@
   /**
    * 出力範囲に含まれる月を新しい順に返す。
    * 「直近3ヶ月」は当月・前月・前々月の3暦月とする（月ごと出力なら3ファイル）。
+   * 「全て」は暦月では決まらないため null（絞り込みなし）を返す。
    */
   function monthKeysForRange(range, today) {
     switch (range) {
@@ -194,6 +195,8 @@
         return [monthKeyBefore(today, 1)];
       case 'last3':
         return [monthKeyBefore(today, 0), monthKeyBefore(today, 1), monthKeyBefore(today, 2)];
+      case 'all':
+        return null;
       default:
         throw new Error('未知の出力範囲: ' + range);
     }
@@ -228,15 +231,21 @@
   function buildExportPlan(records, options) {
     if (MODES.indexOf(options.mode) === -1) throw new Error('未知の出力方法: ' + options.mode);
 
-    var months = monthKeysForRange(options.range, options.today);
-    var wanted = Object.create(null);
-    months.forEach(function (key) {
-      wanted[key] = true;
-    });
+    var wantedMonths = monthKeysForRange(options.range, options.today);
+    var filtered;
 
-    var filtered = records.filter(function (record) {
-      return wanted[monthKeyOf(record)];
-    });
+    if (wantedMonths === null) {
+      // 「全て」。表示中の明細をそのまま使う。
+      filtered = records.slice();
+    } else {
+      var wanted = Object.create(null);
+      wantedMonths.forEach(function (key) {
+        wanted[key] = true;
+      });
+      filtered = records.filter(function (record) {
+        return wanted[monthKeyOf(record)];
+      });
+    }
 
     var groups = groupByMonth(filtered);
     var files;
@@ -258,15 +267,21 @@
     });
 
     return {
-      months: months,
+      // 「全て」のときは、実際に明細があった月を新しい順に並べたもの。
+      months: wantedMonths === null
+        ? groups.map(function (group) { return group.month; })
+        : wantedMonths,
       files: files,
       total: files.reduce(function (sum, file) {
         return sum + file.records.length;
       }, 0),
-      // 表示中の100件に含まれていない月。範囲を広げても出せないことを伝えるために使う。
-      emptyMonths: months.filter(function (key) {
-        return !found[key];
-      })
+      // 選んだ範囲のうち、表示中の100件に明細が無かった月。
+      // 「全て」は表示中のものが全てなので、抜けは起こらない。
+      emptyMonths: wantedMonths === null
+        ? []
+        : wantedMonths.filter(function (key) {
+          return !found[key];
+        })
     };
   }
 
